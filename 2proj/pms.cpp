@@ -7,6 +7,7 @@
 #include <fstream>
 #include <queue>
 #include <cstdlib>
+#include <cstring>
 #include <cerrno>
 
 #include <mpi.h>
@@ -35,7 +36,7 @@ void receive_and_store(const int proc_rank, std::queue<unsigned char>ques[2], co
 	store_que_index = !store_que_index;
     }
 
-    DEBUG_PRINT("received " << (unsigned)recv_byte);
+    //DEBUG_PRINT("received " << (unsigned)recv_byte);
 }
 
 void merge_and_send(const int proc_rank, std::queue<unsigned char>ques[2], const int seq_size, const int num_procs)
@@ -70,10 +71,10 @@ void merge_and_send(const int proc_rank, std::queue<unsigned char>ques[2], const
     /* Last processor doesn't send but prints sorted sequence. */
     if (proc_rank < num_procs - 1) {
 	MPI::COMM_WORLD.Send(&to_send, 1, MPI_CHAR, proc_rank + 1, TAG);
-	DEBUG_PRINT("sending " << static_cast<unsigned>(to_send));
+	//DEBUG_PRINT("sending " << static_cast<unsigned>(to_send));
     } else {
 	std::cout << static_cast<unsigned>(to_send) << std::endl;
-	DEBUG_PRINT("output " << static_cast<unsigned>(to_send));
+	//DEBUG_PRINT("output " << static_cast<unsigned>(to_send));
     }
 }
 
@@ -84,12 +85,18 @@ int main(int argc, char *argv[])
     const int proc_rank = MPI::COMM_WORLD.Get_rank();
     const unsigned input_size = 1 << (num_procs - 1);
 
+    double start_time, end_time;
+
+    MPI::COMM_WORLD.Barrier();
+    start_time = MPI::Wtime();
+    DEBUG_PRINT("STARTING");
     /* 
      * First processor reads input and sends it to the second processor.
      * Every other processor receives and stores data, merges and sends
      * merged sequence to the succeding processor. The last processor
      * doesn't send but prints sorted sequence.
      */
+
     if (proc_rank == 0) {
 	unsigned char read_byte;
 
@@ -98,10 +105,10 @@ int main(int argc, char *argv[])
 	if (is) {
 	    /* Read byte after byte and send it to the second processor. */
 	    while (is.read(reinterpret_cast<char*>(&read_byte), 1)) {
-		std::cout << static_cast<unsigned>(read_byte) << ' ';
+		//std::cout << static_cast<unsigned>(read_byte) << ' ';
 		MPI::COMM_WORLD.Send(&read_byte, 1, MPI_CHAR, proc_rank + 1, TAG);
 	    }
-	    std::cout << std::endl;
+	    //std::cout << std::endl;
 
 	    /* Check for errors during file reading. */
 	    if (!is.eof()) {
@@ -119,7 +126,7 @@ int main(int argc, char *argv[])
 
 	std::queue<unsigned char> ques[2];
 
-	DEBUG_PRINT("starting");
+	//DEBUG_PRINT("starting");
 	while (true) {
 	    /* Receive and store until got all data. */
 	    if (received_cntr < input_size) {
@@ -133,11 +140,15 @@ int main(int argc, char *argv[])
 
 	    /* All data processed? Aka are both queues empty? */
 	    if (ques[0].empty() && ques[1].empty()) {
-		DEBUG_PRINT("finishing");
+		//DEBUG_PRINT("finishing");
 		break;
 	    }
 	}
     }
+
+    //MPI::COMM_WORLD.Barrier();
+    end_time = MPI::Wtime();
+    DEBUG_PRINT("FINISHED in " << end_time - start_time);
 
     MPI::Finalize();
     return EXIT_SUCCESS;
