@@ -9,11 +9,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
+#include <ctime>
 
 #include <mpi.h>
 
 #define FILE_NAME "numbers"
 #define TAG 0
+#define ROOT_PROC 0
 
 #ifdef DEBUG
 #define DEBUG_PRINT(x) do { std::cerr << proc_rank << ": " << x << std::endl; } while (false)
@@ -31,7 +33,7 @@ void receive_and_store(const int proc_rank, std::queue<unsigned char>ques[2], co
     ques[store_que_index].push(recv_byte);
     received_cntr++;
 
-    /* Received all sequence? Switch ques. */
+    /* Received whole sequence? Switch ques. */
     if (!(received_cntr % seq_size)) {
 	store_que_index = !store_que_index;
     }
@@ -85,19 +87,24 @@ int main(int argc, char *argv[])
     const int proc_rank = MPI::COMM_WORLD.Get_rank();
     const unsigned input_size = 1 << (num_procs - 1);
 
-    double start_time, end_time;
+#ifdef MEASURE_TIME
+    double wall_time, to_reduce_time, reduced_time;
+    clock_t cpu_time;
 
     MPI::COMM_WORLD.Barrier();
-    start_time = MPI::Wtime();
-    DEBUG_PRINT("STARTING");
+    if (proc_rank == ROOT_PROC) {
+	wall_time = MPI::Wtime();
+    }
+    cpu_time = clock();
+#endif //MEASURE_TIME
+
     /* 
      * First processor reads input and sends it to the second processor.
      * Every other processor receives and stores data, merges and sends
      * merged sequence to the succeding processor. The last processor
-     * doesn't send but prints sorted sequence.
+     * doesn't send anything but prints sorted sequence.
      */
-
-    if (proc_rank == 0) {
+    if (proc_rank == ROOT_PROC) {
 	unsigned char read_byte;
 
 	/* Open file and check for errors. */
@@ -138,7 +145,7 @@ int main(int argc, char *argv[])
 		merge_and_send(proc_rank, ques, seq_size, num_procs);
 	    }
 
-	    /* All data processed? Aka are both queues empty? */
+	    /* All data processed? AKA are both queues empty? */
 	    if (ques[0].empty() && ques[1].empty()) {
 		//DEBUG_PRINT("finishing");
 		break;
@@ -146,9 +153,21 @@ int main(int argc, char *argv[])
 	}
     }
 
-    //MPI::COMM_WORLD.Barrier();
-    end_time = MPI::Wtime();
-    DEBUG_PRINT("FINISHED in " << end_time - start_time);
+#ifdef MEASURE_TIME
+    cpu_time = clock() - cpu_time;
+    MPI::COMM_WORLD.Barrier();
+    if (proc_rank == ROOT_PROC) {
+	wall_time = MPI::Wtime() - wall_time;
+    }
+    to_reduce_time = static_cast<double>(cpu_time) / CLOCKS_PER_SEC;
+    MPI::COMM_WORLD.Reduce(&to_reduce_time, &reduced_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_PROC);
+
+    if (proc_rank == ROOT_PROC) {
+	DEBUG_PRINT("walltime: " << wall_time);
+	DEBUG_PRINT("cputime: " << cpu_time);
+	DEBUG_PRINT("reduced: " << reduced_time);
+    }
+#endif //MEASURE_TIME
 
     MPI::Finalize();
     return EXIT_SUCCESS;
