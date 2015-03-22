@@ -17,10 +17,10 @@
 #define TAG 0
 #define ROOT_PROC 0
 
-#ifdef DEBUG
-#define DEBUG_PRINT(x) do { std::cerr << proc_rank << ": " << x << std::endl; } while (false)
+#ifdef NO_OUT
+#define PRINT(x) do { ; } while (false)
 #else
-#define DEBUG_PRINT(x) do { ; } while (false)
+#define PRINT(x) do { std::cout << x; } while (false)
 #endif
 
 void receive_and_store(const int proc_rank, std::queue<unsigned char>ques[2], const int seq_size, unsigned &received_cntr)
@@ -37,8 +37,6 @@ void receive_and_store(const int proc_rank, std::queue<unsigned char>ques[2], co
     if (!(received_cntr % seq_size)) {
 	store_que_index = !store_que_index;
     }
-
-    //DEBUG_PRINT("received " << (unsigned)recv_byte);
 }
 
 void merge_and_send(const int proc_rank, std::queue<unsigned char>ques[2], const int seq_size, const int num_procs)
@@ -73,10 +71,8 @@ void merge_and_send(const int proc_rank, std::queue<unsigned char>ques[2], const
     /* Last processor doesn't send but prints sorted sequence. */
     if (proc_rank < num_procs - 1) {
 	MPI::COMM_WORLD.Send(&to_send, 1, MPI_CHAR, proc_rank + 1, TAG);
-	//DEBUG_PRINT("sending " << static_cast<unsigned>(to_send));
     } else {
-	std::cout << static_cast<unsigned>(to_send) << std::endl;
-	//DEBUG_PRINT("output " << static_cast<unsigned>(to_send));
+	PRINT(static_cast<unsigned>(to_send) << std::endl);
     }
 }
 
@@ -92,10 +88,6 @@ int main(int argc, char *argv[])
     clock_t cpu_time;
 
     MPI::COMM_WORLD.Barrier();
-    if (proc_rank == ROOT_PROC) {
-	wall_time = MPI::Wtime();
-    }
-    cpu_time = clock();
 #endif //MEASURE_TIME
 
     /* 
@@ -105,17 +97,25 @@ int main(int argc, char *argv[])
      * doesn't send anything but prints sorted sequence.
      */
     if (proc_rank == ROOT_PROC) {
-	unsigned char read_byte;
+	std::queue<unsigned char> in_que;
 
 	/* Open file and check for errors. */
-	std::ifstream is(FILE_NAME, std::ifstream::in|std::ifstream::binary);
+	std::ifstream is(FILE_NAME, std::ifstream::in | std::ifstream::binary);
 	if (is) {
-	    /* Read byte after byte and send it to the second processor. */
+	    unsigned char read_byte;
+	    bool first = true;
+
+	    /* Read byte after byte, print it and store it in queue. */
 	    while (is.read(reinterpret_cast<char*>(&read_byte), 1)) {
-		//std::cout << static_cast<unsigned>(read_byte) << ' ';
-		MPI::COMM_WORLD.Send(&read_byte, 1, MPI_CHAR, proc_rank + 1, TAG);
+		if (first) {
+		    first = false;
+		} else {
+		    PRINT(' ');
+		}
+		PRINT(static_cast<unsigned>(read_byte));
+		in_que.push(read_byte);
 	    }
-	    //std::cout << std::endl;
+	    PRINT(std::endl);
 
 	    /* Check for errors during file reading. */
 	    if (!is.eof()) {
@@ -127,30 +127,39 @@ int main(int argc, char *argv[])
 	    std::cerr << strerror(errno) << " \"" FILE_NAME "\"" << std::endl;
 	    MPI::COMM_WORLD.Abort(errno);
 	}
+
+#ifdef MEASURE_TIME
+	wall_time = MPI::Wtime();
+	cpu_time = clock();
+#endif
+	/* Send each number from the queue to the first processor. */
+	while (!in_que.empty()) {
+	    unsigned to_send = in_que.front();
+
+	    in_que.pop();
+	    MPI::COMM_WORLD.Send(&to_send, 1, MPI_CHAR, proc_rank + 1, TAG);
+	}
     } else {
 	const unsigned seq_size = 1 << (proc_rank - 1);
 	unsigned received_cntr = 0;
 
 	std::queue<unsigned char> ques[2];
 
-	//DEBUG_PRINT("starting");
-	while (true) {
+#ifdef MEASURE_TIME
+	cpu_time = clock();
+#endif
+	/* Loop until all data processed, AKA until at least one queue is not empty. */
+	do {
 	    /* Receive and store until got all data. */
 	    if (received_cntr < input_size) {
 		receive_and_store(proc_rank, ques, seq_size, received_cntr);
 	    }
 
-	    /* Merge and send, until all data processed. */
+	    /* Merge and send until all data processed. */
 	    if (received_cntr > seq_size) {
 		merge_and_send(proc_rank, ques, seq_size, num_procs);
 	    }
-
-	    /* All data processed? AKA are both queues empty? */
-	    if (ques[0].empty() && ques[1].empty()) {
-		//DEBUG_PRINT("finishing");
-		break;
-	    }
-	}
+	} while (!(ques[0].empty() && ques[1].empty()));
     }
 
 #ifdef MEASURE_TIME
@@ -163,9 +172,8 @@ int main(int argc, char *argv[])
     MPI::COMM_WORLD.Reduce(&to_reduce_time, &reduced_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_PROC);
 
     if (proc_rank == ROOT_PROC) {
-	DEBUG_PRINT("walltime: " << wall_time);
-	DEBUG_PRINT("cputime: " << cpu_time);
-	DEBUG_PRINT("reduced: " << reduced_time);
+	std::cout << "walltime: " << std::fixed << wall_time << std::endl;
+	std::cout << "reduced: " << std::fixed << reduced_time << std::endl;
     }
 #endif //MEASURE_TIME
 

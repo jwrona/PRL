@@ -30,14 +30,16 @@ CPUS=$((LOG+1))
 #create random input file
 dd if=/dev/urandom bs=1 count="${PS}" of=numbers 2> /dev/null
 
-#hexdump numbers -ve '/1 "%d""\n"' > numbers.txt
-#/usr/bin/time -f "%E" sort -n numbers.txt > sorted.txt
+#hexdump numbers -ve '/1 "%u""\n"' > numbers.txt
+#sort -n numbers.txt > sorted_sort.txt
 
 #compilation
-"${MPIPATH}mpic++" -DDEBUG -DMEASURE_TIME -o "${NAME}" "${NAME}.cpp"
+"${MPIPATH}mpic++" -Ofast -DNO_OUT -DMEASURE_TIME -o "${NAME}" "${NAME}.cpp"
 
 #run
-time "${MPIPATH}mpirun" -np "${CPUS}" "${NAME}"
+"${MPIPATH}mpirun" -np "${CPUS}" "${NAME}" #> sorted_pms.txt
+
+#cmp sorted_{sort,pms}.txt
 
 #cleanup
-rm -f "${NAME}" numbers
+rm -f "${NAME}" numbers #numbers.txt sorted_{sort,pms}.txt
