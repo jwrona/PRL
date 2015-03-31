@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
     const unsigned input_size = 1 << (num_procs - 1);
 
 #ifdef MEASURE_TIME
+    size_t reduced_mem, ques_max_size = 0;
     double wall_time, to_reduce_time, reduced_time;
     clock_t cpu_time;
 
@@ -155,6 +156,8 @@ int main(int argc, char *argv[])
 		receive_and_store(proc_rank, ques, seq_size, received_cntr);
 	    }
 
+	    ques_max_size = std::max(ques_max_size, ques[0].size() + ques[1].size());
+
 	    /* Merge and send until all data processed. */
 	    if (received_cntr > seq_size) {
 		merge_and_send(proc_rank, ques, seq_size, num_procs);
@@ -170,10 +173,12 @@ int main(int argc, char *argv[])
     }
     to_reduce_time = static_cast<double>(cpu_time) / CLOCKS_PER_SEC;
     MPI::COMM_WORLD.Reduce(&to_reduce_time, &reduced_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_PROC);
+    MPI::COMM_WORLD.Reduce(&ques_max_size, &reduced_mem, 1, MPI_UNSIGNED_LONG, MPI_SUM, ROOT_PROC);
 
     if (proc_rank == ROOT_PROC) {
 	std::cout << "walltime: " << std::fixed << wall_time << std::endl;
 	std::cout << "reduced: " << std::fixed << reduced_time << std::endl;
+	std::cout << "mem: " << std::fixed << reduced_mem + input_size << std::endl;
     }
 #endif //MEASURE_TIME
 
