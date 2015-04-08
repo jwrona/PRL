@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #author: Jan Wrona
-#email: xwrona00@stud.fit.vutbr.cz
+#email: <xwrona00@stud.fit.vutbr.cz>
 
 USAGE="Usage: ${0} problem_size"
 MPIPATH="/usr/local/share/OpenMPI/bin/"
@@ -30,11 +30,12 @@ CPUS=$((LOG+1))
 #create random input file
 dd if=/dev/urandom bs=1 count="${PS}" of=numbers 2> /dev/null
 
+#possible to verify against sort
 #hexdump numbers -ve '/1 "%u""\n"' > numbers.txt
 #sort -n numbers.txt > sorted_sort.txt
 
 #compilation
-"${MPIPATH}mpicc" -std=c11 -DMEASURE_TIME -DNPRINT_IN -DNPRINT_OUT -Ofast -o "${NAME}" "${NAME}.c"
+"${MPIPATH}mpicc" -std=c11 -DNMEASURE_TIME -DPRINT_IN -DPRINT_OUT -o "${NAME}" "${NAME}.c"
 
 #run
 "${MPIPATH}mpirun" -np "${CPUS}" "${NAME}" #> sorted_pms.txt
