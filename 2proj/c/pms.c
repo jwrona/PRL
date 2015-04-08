@@ -1,6 +1,8 @@
 /*
  * author: Jan Wrona
  * email: <xwrona00@stud.fit.vutbr.cz>
+ *
+ * Implementation of pipeline merge sort algorithm using MPI.
  */
 
 #include <stdio.h>
@@ -10,7 +12,7 @@
 
 #include <mpi.h>
 
-#include "queue.h"
+#include "pms.h"
 
 #define FILE_NAME "numbers"
 #define TAG 0
@@ -93,7 +95,7 @@ int main(int argc, char *argv[])
     input_size = 1 << (num_procs - 1);
 
 #ifdef MEASURE_TIME
-    double wall_time, to_reduce_time, reduced_time;
+    double wall_time, to_reduce_cpu_time, reduced_cpu_time;
     clock_t cpu_time;
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -125,7 +127,7 @@ int main(int argc, char *argv[])
 	    MPI_Abort(MPI_COMM_WORLD, errno);
 	}
 
-	/* Read bytes, print them and store in queue. */
+	/* Read, print and store bytes in queue. */
 	do {
 	    bytes_read = fread(buff, sizeof(*buff), IN_BUFF_SIZE, in);
 
@@ -146,8 +148,9 @@ int main(int argc, char *argv[])
 	    }
 	} while (!feof(in));
 	IN_PRINT("\n");
+	fflush(stdout);
 
-#ifdef MEASURE_TIME
+#ifdef MEASURE_TIME /* Start of root processor time measurement. */
 	wall_time = MPI_Wtime();
 	cpu_time = clock();
 #endif
@@ -168,12 +171,12 @@ int main(int argc, char *argv[])
 	ques[1] = queue_init(seq_size);
 	if (ques[0] == NULL || ques[1] == NULL) {
 	    perror("queue_init()");
-	    queue_destroy(ques[0]);
 	    queue_destroy(ques[1]);
+	    queue_destroy(ques[0]);
 	    MPI_Abort(MPI_COMM_WORLD, errno);
 	}
 
-#ifdef MEASURE_TIME
+#ifdef MEASURE_TIME /* Start of non-root processors time measurement. */
 	cpu_time = clock();
 #endif
 	/* Loop until all data processed, AKA until at least one queue is not empty. */
@@ -193,17 +196,17 @@ int main(int argc, char *argv[])
 	queue_destroy(ques[0]);
     }
 
-#ifdef MEASURE_TIME
+#ifdef MEASURE_TIME /* End of time measurement. */
     cpu_time = clock() - cpu_time;
     MPI_Barrier(MPI_COMM_WORLD);
     if (proc_rank == ROOT_PROC) {
 	wall_time = MPI_Wtime() - wall_time;
     }
-    to_reduce_time = ((double)cpu_time) / CLOCKS_PER_SEC;
-    MPI_Reduce(&to_reduce_time, &reduced_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_PROC, MPI_COMM_WORLD);
+    to_reduce_cpu_time = ((double)cpu_time) / CLOCKS_PER_SEC;
+    MPI_Reduce(&to_reduce_cpu_time, &reduced_cpu_time, 1, MPI_DOUBLE, MPI_SUM, ROOT_PROC, MPI_COMM_WORLD);
 
     if (proc_rank == ROOT_PROC) {
-	printf("walltime: %f\nreduced: %f\n", wall_time, reduced_time);
+	printf("walltime: %f\ncputime: %f\n", wall_time, reduced_cpu_time);
     }
 #endif //MEASURE_TIME
 
