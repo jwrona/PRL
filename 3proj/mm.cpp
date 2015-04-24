@@ -24,7 +24,7 @@
 
 typedef int src_t;
 #define MPI_SRC_T MPI::INT
-typedef long int res_t;
+typedef int long res_t;
 #define MPI_RES_T MPI::LONG
 
 #define DEBUG_PRINT(x) \
@@ -63,12 +63,12 @@ int main(int argc, char *argv[])
 	prod_cols = multiplier.get_cols();
 	shared_dim = multiplicand.get_cols();
 
-	multiplicand.print();
-	std::cout << std::endl;
-	multiplier.print();
-	std::cout << std::endl;
-	auto product = multiplicand * multiplier;
-	product.print();
+	//multiplicand.print();
+	//std::cout << std::endl;
+	//multiplier.print();
+	//std::cout << std::endl;
+	//auto product = multiplicand * multiplier;
+	//product.print();
     }
 
     /* Distribute dimensions among all processors. */
