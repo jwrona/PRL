@@ -1,0 +1,66 @@
+%%%%%
+%file: mm.tex
+%date: 24.4.2015
+%author: Jan Wrona
+%email: <xwrona00@stud.fit.vutbr.cz>
+%project: Mesh Multiplication, PRL
+%%%%%
+
+\documentclass[a4paper, 12pt]{article}[24.4.2015]
+\usepackage[czech]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[text={17cm, 24cm}, left=2cm, top=3cm]{geometry}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\graphicspath{ {./fig/} }
+
+\title{Paralelní a distribuované algoritmy\\Mesh multiplication}
+\author{Jan Wrona\\xwrona00@stud.fit.vutbr.cz}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+%%%%
+\section{Rozbor a~analýza algoritmu} \label{analysis}
+%%%%
+Algoritmus \emph{mesh multiplication} je algoritmus pro násobení matic. Formálně je násobení matic definováno jako binární operace nad množinou matic. Pokud jsou operandy matice \(A\) a \(B\), kde \(A\) (násobenec) má rozměr \(m \times n\) a \(B\) (násobitel) má rozměr \(n \times k\), výsledek je matice \(C\) o rozměru \(m \times k\). Prvky matice \(C\) jsou dány vztahem
+\begin{equation}\label{mat_mult}
+c_{ij} = \sum_{s = 1}^{n} a_{is} \times b_{sj}, \qquad 1 \leq i \leq m, 1 \leq j \leq k.
+\end{equation}
+V sekvenčním prostředí pro násobení matic existuje řada algoritmů, jejichž teoretická časová složitost je \(O(n^x), 2 < x \leq 3\). Není známo, zda nejrychlejší z těchto algoritmů je optimální, žádný algoritmus však nemůže dosahovat složitosti lepší než \(O(n^2)\), protože \(n^2\) je počet prvků výstupní matice. Například naivní sekvenčním algoritmus se třemi vnořenými cykly dosahuje časové složitosti \(O(n^3)\).
+
+Pro následující rozbor algoritmu je jeden výpočetní krok složen z přijetí operandů procesorem, provedení příslušné operace a následné distribuce operandů. Mesh multiplication algoritmus využívá \(m \times k\) procesorů, které jsou logicky uspořádány do matice odpovídající výsledku násobení. V počátečním stavu jsou matice \(A\) a \(B\) rozmístěny napříč krajními procesory. Každý procesor z prvního sloupce zná jeden řádek matice \(A\) a každý procesor z prvního řádku zná jeden sloupec matice \(B\). Procesor v levém horním rohu tedy zná první řádek matice \(A\) a první sloupec matice \(B\) atp. Procesor musí v jednom kroku vykonat několik primitivních úkonů, které se odvíjí od jeho logického umístění. Prvním z těchto kroků je zisk dvou operandů. Procesory, jenž v počátečním stavu znají některý řádek a/nebo sloupec vstupní matice, jako operand použijí poslední prvek z řádku/sloupce. Ostatní procesory čekají na zprávu od svého souseda, která operand obsahuje. Prvky matice \(A\) jsou přijímány od levého souseda, prvky matice \(B\) od horního souseda. Po zisku obou operandů je možné provést jejich násobení. Násobky jsou akumulovány. Posledním úkonem je distribuce operandů. Procesory, které nejsou logicky umístěny v posledním sloupci odesílají zprávou prvek matice \(A\) svému pravému sousedovi, obdobně procesory mimo poslední logický řádek odesílají prvek matice \(B\) svému spodnímu sousedovi. Tento proces každý procesor opakuje \(n\)krát.
+
+Čekání ná operandy je určitá forma synchronizace. V prvním kroku jsou oba operandy dostupné pouze procesoru \(P(1,1)\), ostatní čekají. V druhém kroku začínají pracovat také \(P(1,2)\) a \(P(2,1)\). Řádek \(i\) matice \(A\) se tedy začne používat až v kroku \(i\), obdobně sloupec \(j\) matice \(B\) se začne používat až v kroku \(j\). Tímto je zajištěno, že prvky \(a_{is}\) a \(b_{sj}\) budou během jednoho kroku operandy v procesoru \(P(i,j)\). Práce procesoru končí vyčerpáním všech prvků příslušného řádku a sloupce. Na konci algoritmu hodnota akumulovaná procesorem \(P(i,j)\) odpovídá rovnici~\ref{mat_mult}.
+
+Procesor \(P(1,1)\) začíná pracovat v čase 1, provede \(n\) výpočetních kroků a končí tak čase \(n\). \(P(m, 1)\) začíná v čase \(m\) a končí v \(m + n - 1\), procesor v protějším rohu logické matice \(P(1, k)\) začíná v čase \(k\) a končí v \(k + n - 1\). Z předchozího lze odvodit, že \(P(m, k)\) svůj výpočet začne v čase \(m + k - 1\) a provedení \(n\) kroků ukončí výpočet v \(m + k - 1 + n - 1 = m + k + n - 2\). Protože je poslední krok procesoru \(P(m, k)\) posledním krokem celého algoritmu, je teoretická časová složitost lineární v závislosti na rozměrech vstupních matic. Za předpokladu, že \(m \leq n\) a \(k \leq n\) platí
+\[
+t(n) = O(m + k + n - 2) = O(n).
+\]
+Počet procesorů \(p(n)\)roste kvadraticky s rozměry vstupních matic \(m\) a \(k\), cena algoritmu je tak
+\[
+c(n) = O(n) * n^2 = O(n^3),
+\]
+což odpovídá teoretické časové složitosti naivního sekvenčního algoritmu pro násobení matic a mesh multiplication tedy není optimální. Prostorová složitost je kvadratická: krajní procesory mají mezi sebe rozdělené matice \(A\) a \(B\). Dále si každý procesor musí pamatovat částečný výsledek, který se po ukončení výpočtu stává prvkem matice \(C\).
+
+Rozbor a analýza algoritmu Mesh Multiplication, teoretická složitost - prostorová, časová náročnost a cena, sekvenční diagram (popis zasílání zpráv mezi procesy - jednoduchý a obecný).
+
+%%%%
+\section{Implementace, testování a~experimenty} \label{experiments}
+%%%%
+Experimenty s různě velkými maticemi pro ověření časové složitosti (očekává se graf, nikoliv tabulka), nikoliv měření počtu kroků algoritmu
+Graf - osa x (vodorovná) bude počet procesorů/prvků a osa y (svislá) bude čas, pozor na měřítka obou os, graf bude mít popisky os a bude z něj na první pohled zřejmý závěr
+
+%%%%
+\section{Závěr}\label{conclusion}
+%%%%
+Závěr - zhodnocení experimentů, zamyšlení nad reálnou složitostí.
+
+\end{document}
