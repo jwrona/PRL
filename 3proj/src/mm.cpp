@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <bitset>
+#include <chrono>
 #include <cstring>
 #include <cerrno>
 //#include <ctime>
@@ -21,6 +22,8 @@
 #define ROOT_PROC 0
 #define MULTIPLICAND_FILE_NAME "mat1"
 #define MULTIPLIER_FILE_NAME "mat2"
+
+#define MEASURE_TIME
 
 typedef int src_t;
 #define MPI_SRC_T MPI::INT
@@ -117,6 +120,10 @@ int main(int argc, char *argv[])
 		multiplier_cols.data(), shared_dim, MPI_SRC_T, ROOT_PROC);
     }
 
+#ifdef MEASURE_TIME
+    auto start = std::chrono::high_resolution_clock::now();
+#endif /* MEASURE_TIME */
+
     res_t acc_res = 0;
     bool overflow_detected = false;
     for (std::size_t i = 0; i < shared_dim; ++i) {
@@ -154,6 +161,12 @@ int main(int argc, char *argv[])
 	    overflow_detected = true;
 	}
     }
+
+#ifdef MEASURE_TIME
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = end - start;
+    std::cout << "Duration = " << diff.count() << std::endl;
+#endif /* MEASURE_TIME */
 
     Matrix<res_t> product(prod_rows, prod_cols, Matrix<res_t>::PRODUCT);
     product.stretch();
