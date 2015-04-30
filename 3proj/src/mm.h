@@ -76,11 +76,11 @@ void Matrix<T>::load(std::string file_name)
 
 	if (!line_ss.eof() && line_ss.fail()) {
 	    throw std::invalid_argument("Invalid value on row " +
-		    std::to_string(rows) + " of "+ file_name);
+		    std::to_string(static_cast<unsigned long long>(rows)) + " of "+ file_name);
 	}
 	if (read_cols == 0 || read_cols != cols) {
 	    throw std::invalid_argument("Invalid column count on row " +
-		    std::to_string(rows) + " of "+ file_name);
+		    std::to_string(static_cast<unsigned long long>(rows)) + " of "+ file_name);
 	}
     }
 

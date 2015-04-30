@@ -3,6 +3,8 @@
  * email: <xwrona00@stud.fit.vutbr.cz>
  */
 
+#include <mpi.h>
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -12,9 +14,6 @@
 #include <chrono>
 #include <cstring>
 #include <cerrno>
-//#include <ctime>
-
-#include <mpi.h>
 
 #include "mm.h"
 
@@ -30,11 +29,6 @@ typedef int src_t;
 typedef int long res_t;
 #define MPI_RES_T MPI::LONG
 
-#define DEBUG_PRINT(x) \
-    std::cout << "WORLD: " << world_rank << "/" << world_procs << '\t' \
-	<< "COL: " <<col_comm.Get_rank() << "/" << col_comm.Get_size()  << '\t' \
-	<< "ROW: " << row_comm.Get_rank() << "/" << row_comm.Get_size()  << '\t' \
-        << x << std::endl;
 
 enum {
     FIRST_ROW,
@@ -65,13 +59,6 @@ int main(int argc, char *argv[])
 	prod_rows = multiplicand.get_rows();
 	prod_cols = multiplier.get_cols();
 	shared_dim = multiplicand.get_cols();
-
-	//multiplicand.print();
-	//std::cout << std::endl;
-	//multiplier.print();
-	//std::cout << std::endl;
-	//auto product = multiplicand * multiplier;
-	//product.print();
     }
 
     /* Distribute dimensions among all processors. */
@@ -121,6 +108,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef MEASURE_TIME
+    MPI::COMM_WORLD.Barrier();
     auto start = std::chrono::high_resolution_clock::now();
 #endif /* MEASURE_TIME */
 
@@ -131,27 +119,21 @@ int main(int argc, char *argv[])
 	res_t res;
 
 	if (proc_roles[FIRST_COL]) {
-	    //DEBUG_PRINT("FIRST COLUMN => reading form memory");
 	    left = multiplicand_rows.back();
 	    multiplicand_rows.pop_back();
 	} else {
-	    //DEBUG_PRINT("NOT FIRST COLUMN => receiving from column " << row_rank - 1);
 	    row_comm.Recv(&left, 1, MPI_SRC_T, row_rank - 1, TAG);
 	}
 	if (proc_roles[FIRST_ROW]) {
-	    //DEBUG_PRINT("FIRST ROW => reading form memory");
 	    up = multiplier_cols.back();
 	    multiplier_cols.pop_back();
 	} else {
-	    //DEBUG_PRINT("NOT FIRST ROW => receiving from row " << col_rank - 1);
 	    col_comm.Recv(&up, 1, MPI_SRC_T, col_rank - 1, TAG);
 	}
 	if (!proc_roles[LAST_COL]) {
-	    //DEBUG_PRINT("NOT LAST COLUMN => sending to column " << row_rank + 1);
 	    row_comm.Send(&left, 1, MPI_SRC_T, row_rank + 1, TAG);
 	}
 	if (!proc_roles[LAST_ROW]) {
-	    //DEBUG_PRINT("NOT LAST ROW => sending to row " << col_rank + 1);
 	    col_comm.Send(&up, 1, MPI_SRC_T, col_rank + 1, TAG);
 	}
 
@@ -163,11 +145,13 @@ int main(int argc, char *argv[])
     }
 
 #ifdef MEASURE_TIME
+    MPI::COMM_WORLD.Barrier();
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    std::cout << "Duration = " << diff.count() << std::endl;
-#endif /* MEASURE_TIME */
-
+    if (world_rank == ROOT_PROC) {
+       std::chrono::duration<double> diff = end - start;
+       std::cout << diff.count() << std::endl;
+    }
+#else /* MEASURE_TIME */
     Matrix<res_t> product(prod_rows, prod_cols, Matrix<res_t>::PRODUCT);
     product.stretch();
 
@@ -177,6 +161,7 @@ int main(int argc, char *argv[])
     if (world_rank == ROOT_PROC) {
 	product.print();
     }
+#endif /* MEASURE_TIME */
 
     MPI::Finalize();
     return EXIT_SUCCESS;

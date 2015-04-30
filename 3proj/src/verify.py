@@ -3,15 +3,19 @@
 #email: <xwrona00@stud.fit.vutbr.cz>
 
 import numpy as np
-import subprocess
+import subprocess, math, sys
 
 int_range = 2**31
+
+cores = int(sys.argv[1])
+sq_cores = int(math.sqrt(float(sys.argv[1])))
+
 modes = [
     {'max_n': 1, 'max_m': 1, 'max_p': 1, 'runs': 10}, #1x1 * 1x1
-    {'max_n': 40, 'max_m': 1, 'max_p': 1, 'runs': 10}, #row vector * 1x1
-    {'max_n': 1, 'max_m': 1, 'max_p': 40, 'runs': 10}, #1x1 * column vector
-    {'max_n': 7, 'max_m': 1, 'max_p': 7, 'runs': 10}, #row vector * column vector
-    {'max_n': 7, 'max_m': 100000, 'max_p': 7, 'runs': 100} #NxM * MxP
+    {'max_n': cores, 'max_m': 1, 'max_p': 1, 'runs': 10}, #row vector * 1x1
+    {'max_n': 1, 'max_m': 1, 'max_p': cores, 'runs': 10}, #1x1 * column vector
+    {'max_n': sq_cores, 'max_m': 1, 'max_p': sq_cores, 'runs': 10}, #row vector * column vector
+    {'max_n': sq_cores, 'max_m': 100000, 'max_p': sq_cores, 'runs': 10} #NxM * MxP
 ]
 
 for mode in modes:
