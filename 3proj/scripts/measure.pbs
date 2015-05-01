@@ -1,0 +1,25 @@
+#!/bin/bash
+#PBS -N ompi165_proc_n4
+#PBS -q qexp
+#PBS -l select=4:ncpus=16
+
+module load python
+#module load bullxmpi/bullxmpi_1.2.4.1 intel/15.2.164
+module load openmpi
+#module load openmpi/1.8.1-gcc
+#module load impi intel/15.2.164
+
+export GOMP_CPU_AFFINITY="0-15"
+export KMP_AFFINITY=granularity=fine,compact,1,0
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
+
+export WORK_DIR="/scratch/wrona/${PBS_JOBID}"
+mkdir "${WORK_DIR}"
+cd "${WORK_DIR}"
+cp "${HOME}"/PRL/3proj/src/* .
+
+#./measure_m.py 64
+./measure_n.py
+
+rm -rf "${WORK_DIR}"
