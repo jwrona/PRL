@@ -9,8 +9,10 @@
 NAME=mm
 
 latex: $(NAME).tex
-	pdflatex $(NAME).tex
-	pdflatex $(NAME).tex
+	latex $(NAME).tex
+	latex $(NAME).tex
+	dvips $(NAME).dvi
+	ps2pdf $(NAME).ps
 
 clean:
-	rm -f $(NAME).{aux,log,out,toc,bbl,blg}
+	rm -f $(NAME).{aux,log,out,toc,bbl,blg,dvi,ps}
