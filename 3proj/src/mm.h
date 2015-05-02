@@ -6,9 +6,12 @@
 #ifndef MM_H
 #define MM_H
 
+#include <iostream>
 #include <string> /* std::string */
 #include <vector> /* std::vector */
 #include <cstdlib> /* std::size_of */
+#include <cstring>
+#include <cerrno>
 
 template <typename T>
 class Matrix {
