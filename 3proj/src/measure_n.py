@@ -12,7 +12,7 @@ reps = 3
 print 'reps =', reps
 print 'n', 'time'
 
-for n in range(1, 50):
+for n in range(1, 30):
     m = p = n
     durations = []
     for i in range(reps):
